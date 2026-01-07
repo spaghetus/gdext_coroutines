@@ -5,8 +5,8 @@ use std::pin::Pin;
 use godot::obj::WithBaseField;
 use godot::prelude::*;
 
-use crate::OnFinishCall;
 use crate::yielding::SpireYield;
+use crate::OnFinishCall;
 
 /// A Godot class responsible for managing a coroutine.
 ///
@@ -25,7 +25,7 @@ pub struct SpireCoroutine {
 	pub(crate) calls_on_finish: Vec<OnFinishCall>,
 }
 
-/// Defines whether the coroutine polls on process or physics frames. 
+/// Defines whether the coroutine polls on process or physics frames.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum PollMode {
 	Process,
@@ -59,14 +59,14 @@ impl INode for SpireCoroutine {
 /// use godot::prelude::*;
 ///
 /// fn manually_connect(node: Gd<Node>) {
-///     let mut coroutine = 
+///     let mut coroutine =
 ///         node.start_coroutine(
 ///             #[coroutine] || {
 ///                 yield seconds(2.0);
 ///                 return "Hello, I'm 2 seconds late!";
 ///             });
 ///      
-///     coroutine.connect(SIGNAL_FINISHED.into(), Callable::from_fn("print_result", 
+///     coroutine.connect(SIGNAL_FINISHED.into(), Callable::from_fn("print_result",
 ///         |args| {
 ///             let result = args.first().and_then(|var| var.try_to::<String>().ok()).unwrap();
 ///             assert_eq!(result.as_str(), "Hello, I'm 2 seconds late!");
@@ -183,7 +183,7 @@ impl SpireCoroutine {
 	}
 
 	fn de_spawn(&mut self) {
-		let mut base = self.base().to_godot();
+		let mut base = self.base().to_godot_owned();
 
 		if let Some(mut parent) = base.get_parent() {
 			parent.remove_child(&base)
@@ -229,15 +229,13 @@ impl SpireCoroutine {
 			}
 			None => {
 				let state = self.resume_closure().ok()?;
-				
+
 				match state {
 					CoroutineState::Yielded(next_yield) => {
 						self.last_yield = Some(next_yield);
 						self.poll(delta_time)
 					}
-					CoroutineState::Complete(result) => {
-						Some(result)
-					}
+					CoroutineState::Complete(result) => Some(result),
 				}
 			}
 		}
@@ -249,26 +247,35 @@ impl SpireCoroutine {
 			let yield_result = pin.as_mut().resume(());
 			yield_result
 		}));
-		
+
 		match result {
 			Ok(state) => Ok(state),
 			Err(err) => {
-				let dummy = Box::new(#[coroutine] || { Variant::nil() });
+				let dummy = Box::new(
+					#[coroutine]
+					|| Variant::nil(),
+				);
 
 				// If the coroutine's closure panicked, we cannot drop it as any destructors it has would be run with invalid state.
-				let must_leak = std::mem::replace(&mut self.coroutine, dummy);
+				let must_leak = std::mem::replace(
+					&mut self.coroutine,
+					dummy
+						as Box<
+							dyn Coroutine<(), Yield = SpireYield, Return = Variant>
+								+ std::marker::Unpin,
+						>,
+				);
 				Box::leak(must_leak);
 
 				self.kill();
-				
-				let reason: &dyn std::fmt::Debug = 
-					if let Some(str) = err.downcast_ref::<&str>() {
-						str
-					} else if let Some(string) = err.downcast_ref::<String>() {
-						string
-					} else {
-						&err
-					};
+
+				let reason: &dyn std::fmt::Debug = if let Some(str) = err.downcast_ref::<&str>() {
+					str
+				} else if let Some(string) = err.downcast_ref::<String>() {
+					string
+				} else {
+					&err
+				};
 
 				godot_error!("Coroutine's closure panicked, the SpireCoroutine will now self-destruct and leak the closure.\n\
 							  Panic Reason: \"{reason:?}\"");

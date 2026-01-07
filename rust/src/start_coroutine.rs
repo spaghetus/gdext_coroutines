@@ -1,8 +1,8 @@
-use std::ops::Coroutine;
-use godot::obj::WithBaseField;
-use godot::prelude::*;
 use crate::prelude::*;
 use crate::yielding::SpireYield;
+use godot::obj::WithBaseField;
+use godot::prelude::*;
+use std::ops::Coroutine;
 
 pub trait StartCoroutine {
 	/// Spawns and starts a new coroutine with default settings.
@@ -22,15 +22,15 @@ pub trait StartCoroutine {
 	///         });
 	/// }
 	/// ```
-	/// 
+	///
 	/// # On Panics
 	/// If `f` panics, the SpireCoroutine will automatically self-destruct and the closure will be leaked
 	fn start_coroutine<R>(
 		&self,
 		f: impl 'static + Unpin + Coroutine<(), Yield = SpireYield, Return = R>,
 	) -> Gd<SpireCoroutine>
-		where
-			R: 'static + ToGodot,
+	where
+		R: 'static + ToGodot,
 	{
 		self.coroutine(f).spawn()
 	}
@@ -59,60 +59,60 @@ pub trait StartCoroutine {
 	///         .spawn();
 	/// }
 	/// ```
-	/// 
+	///
 	/// # On Panics
 	/// If `f` panics, the SpireCoroutine will automatically self-destruct and the closure will be leaked
 	fn coroutine<R>(
 		&self,
 		f: impl 'static + Unpin + Coroutine<(), Yield = SpireYield, Return = R>,
 	) -> CoroutineBuilder<R>
-		where
-			R: 'static + ToGodot;
+	where
+		R: 'static + ToGodot;
 }
 
 impl<TSelf> StartCoroutine for Gd<TSelf>
-	where
-		TSelf: GodotClass + Inherits<Node>,
+where
+	TSelf: GodotClass + Inherits<Node>,
 {
 	fn coroutine<R>(
 		&self,
 		f: impl 'static + Unpin + Coroutine<(), Yield = SpireYield, Return = R>,
 	) -> CoroutineBuilder<R>
-		where
-			R: 'static + ToGodot,
+	where
+		R: 'static + ToGodot,
 	{
 		CoroutineBuilder::new_coroutine(self.clone().upcast(), f)
 	}
 }
 
 impl<T> StartCoroutine for &T
-	where
-		T: WithBaseField + GodotClass<Base: Inherits<Node>>,
+where
+	T: WithBaseField + GodotClass<Base: Inherits<Node>>,
 {
 	fn coroutine<R>(
 		&self,
 		f: impl 'static + Unpin + Coroutine<(), Yield = SpireYield, Return = R>,
 	) -> CoroutineBuilder<R>
-		where
-			R: 'static + ToGodot,
+	where
+		R: 'static + ToGodot,
 	{
-		let base = self.base_field().to_gd();
+		let base = self.base().to_godot_owned();
 		CoroutineBuilder::new_coroutine(base.upcast(), f)
 	}
 }
 
 impl<T> StartCoroutine for &mut T
-	where
-		T: WithBaseField + GodotClass<Base: Inherits<Node>>,
+where
+	T: WithBaseField + GodotClass<Base: Inherits<Node>>,
 {
 	fn coroutine<R>(
 		&self,
 		f: impl 'static + Unpin + Coroutine<(), Yield = SpireYield, Return = R>,
 	) -> CoroutineBuilder<R>
-		where
-			R: 'static + ToGodot,
+	where
+		R: 'static + ToGodot,
 	{
-		let base = self.base_field().to_gd();
+		let base = self.base().to_godot_owned();
 		CoroutineBuilder::new_coroutine(base.upcast(), f)
 	}
 }
